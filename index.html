@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Greybox Previs Studio · 白模預演工作室</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='2' y='5' width='8' height='9' fill='%23bbb'/><circle cx='12' cy='4' r='3' fill='%23ddd'/></svg>" />
+</head>
+<body>
+  <div id="app">
+    <header id="toolbar">
+      <strong class="brand" data-i18n="title"></strong>
+      <div class="group">
+        <select id="addSelect" aria-label="add">
+          <option value="" data-i18n="add"></option>
+          <option value="mannequin" data-i18n="mannequin"></option>
+          <option value="box" data-i18n="box"></option>
+          <option value="cylinder" data-i18n="cylinder"></option>
+          <option value="sphere" data-i18n="sphere"></option>
+          <option value="cone" data-i18n="cone"></option>
+          <option value="plane" data-i18n="plane"></option>
+          <option value="stairs" data-i18n="stairs"></option>
+          <option value="wall" data-i18n="wall"></option>
+          <option value="table" data-i18n="table"></option>
+          <option value="chair" data-i18n="chair"></option>
+        </select>
+      </div>
+      <div class="group seg" id="modeSeg">
+        <button data-mode="translate" class="on" data-i18n="move"></button>
+        <button data-mode="rotate" data-i18n="rotate"></button>
+        <button data-mode="scale" data-i18n="scale"></button>
+      </div>
+      <label class="group chk"><input type="checkbox" id="poseMode" /> <span data-i18n="poseMode"></span></label>
+      <div class="group">
+        <button id="btnNew" data-i18n="newProject"></button>
+        <button id="btnDemo" data-i18n="demo"></button>
+        <button id="btnSave" data-i18n="save"></button>
+        <button id="btnLoad" data-i18n="load"></button>
+        <input type="file" id="fileLoad" accept=".json,application/json" hidden />
+      </div>
+      <div class="spacer"></div>
+      <div class="group seg" id="langSeg"><button data-lang="zh">中文</button><button data-lang="en">EN</button></div>
+      <a class="gh" href="https://github.com/stevenke1981/greybox-previs-studio" target="_blank" rel="noopener">GitHub</a>
+    </header>
+
+    <aside id="left">
+      <h3 data-i18n="outliner"></h3>
+      <ul id="outliner"></ul>
+    </aside>
+
+    <main id="viewport">
+      <div id="gate"></div>
+      <div id="hint" data-i18n="hint"></div>
+      <div id="busy" hidden><span id="busyText"></span> <button id="busyCancel" data-i18n="cancel"></button></div>
+    </main>
+
+    <aside id="right">
+      <nav class="tabs">
+        <button data-tab="props" class="on" data-i18n="props"></button>
+        <button data-tab="export" data-i18n="export"></button>
+        <button data-tab="ai" data-i18n="ai"></button>
+        <button data-tab="view" data-i18n="view"></button>
+      </nav>
+
+      <section id="tab-props" class="tab on">
+        <p id="noSel" class="muted" data-i18n="nothingSelected"></p>
+        <div id="selPanel" hidden>
+          <label><span data-i18n="name"></span><input id="pName" /></label>
+          <div class="row3" id="pPos"><span data-i18n="position"></span><input type="number" step="0.05" /><input type="number" step="0.05" /><input type="number" step="0.05" /></div>
+          <div class="row3" id="pRot"><span data-i18n="rotation"></span><input type="number" step="5" /><input type="number" step="5" /><input type="number" step="5" /></div>
+          <div class="row3" id="pScale"><span data-i18n="scaleL"></span><input type="number" step="0.05" /><input type="number" step="0.05" /><input type="number" step="0.05" /></div>
+          <div id="figPanel" hidden>
+            <label><span data-i18n="clip"></span><select id="pClip"></select></label>
+            <label><span data-i18n="speed"></span><input id="pSpeed" type="number" step="0.1" min="0" value="1" /></label>
+            <div><span data-i18n="posePreset"></span><div id="poseBtns" class="chips"></div></div>
+            <p class="muted"><span data-i18n="bone"></span>: <b id="pBone">—</b></p>
+          </div>
+          <div class="btnrow"><button id="btnDup" data-i18n="duplicate"></button><button id="btnDel" class="danger" data-i18n="delete"></button></div>
+        </div>
+      </section>
+
+      <section id="tab-export" class="tab">
+        <div class="row2"><label><span data-i18n="width"></span><input id="exW" type="number" value="1280" min="64" max="4096" /></label><label><span data-i18n="height"></span><input id="exH" type="number" value="720" min="64" max="4096" /></label></div>
+        <div class="chips" id="resPresets"><button data-r="1280x720">720p</button><button data-r="1920x1080">1080p</button><button data-r="1080x1920">9:16</button><button data-r="1024x1024">1:1</button></div>
+        <h4 data-i18n="exportStill"></h4>
+        <label class="chk"><input type="checkbox" id="exTransparent" /> <span data-i18n="transparent"></span></label>
+        <div class="btnrow wrap">
+          <button data-still="beauty" data-i18n="pngBeauty"></button>
+          <button data-still="depth" data-i18n="pngDepth"></button>
+          <button data-still="normal" data-i18n="pngNormal"></button>
+          <button data-still="edge" data-i18n="pngEdge"></button>
+        </div>
+        <h4 data-i18n="exportSeq"></h4>
+        <div class="chips" id="seqPasses">
+          <label class="chk"><input type="checkbox" value="beauty" checked /> beauty</label>
+          <label class="chk"><input type="checkbox" value="depth" /> depth</label>
+          <label class="chk"><input type="checkbox" value="normal" /> normal</label>
+          <label class="chk"><input type="checkbox" value="edge" /> edge</label>
+        </div>
+        <button id="btnSeq" data-i18n="exportSeq"></button>
+        <h4 data-i18n="exportVideo"></h4>
+        <div class="row2">
+          <label><span data-i18n="format"></span><select id="vidFormat"><option value="webm">WebM</option><option value="mp4">MP4 (H.264)</option></select></label>
+          <label><span data-i18n="videoPass"></span><select id="vidPass"><option>beauty</option><option>depth</option><option>normal</option><option>edge</option></select></label>
+        </div>
+        <button id="btnVideo" data-i18n="exportVideo"></button>
+        <p class="muted small" id="vidSupport"></p>
+      </section>
+
+      <section id="tab-ai" class="tab">
+        <label><span data-i18n="provider"></span><select id="aiProvider"></select></label>
+        <p class="small"><span id="aiStatus"></span> · <a id="aiDocs" target="_blank" rel="noopener" data-i18n="docs"></a></p>
+        <p class="muted small" id="aiNotes"></p>
+        <div id="aiKeySingle"><label><span data-i18n="apiKey"></span><input id="aiKey" type="password" autocomplete="off" /></label></div>
+        <div id="aiKeyPair" hidden>
+          <label><span data-i18n="accessKey"></span><input id="aiAk" type="password" autocomplete="off" /></label>
+          <label><span data-i18n="secretKey"></span><input id="aiSk" type="password" autocomplete="off" /></label>
+        </div>
+        <label class="chk small"><input type="checkbox" id="aiRemember" /> <span data-i18n="remember"></span></label>
+        <p class="warn small" data-i18n="keyWarning"></p>
+        <label><span data-i18n="connection"></span>
+          <select id="aiConn"><option value="direct" data-i18n="direct"></option><option value="proxy" data-i18n="proxy"></option></select></label>
+        <input id="aiProxy" value="http://localhost:8787" hidden />
+        <div class="row2">
+          <label><span data-i18n="mode"></span><select id="aiMode"><option value="video" data-i18n="video"></option><option value="image" data-i18n="image"></option></select></label>
+          <label><span data-i18n="source"></span><select id="aiSource">
+            <option value="beauty" data-i18n="srcBeauty"></option><option value="depth" data-i18n="srcDepth"></option><option value="edge" data-i18n="srcEdge"></option>
+            <option value="video" data-i18n="srcVideo"></option><option value="url" data-i18n="srcUrl"></option><option value="none" data-i18n="srcNone"></option></select></label>
+        </div>
+        <input id="aiUrl" data-i18n-ph="inputUrl" hidden />
+        <label><span data-i18n="prompt"></span><textarea id="aiPrompt" rows="3">cinematic photoreal shot, a woman in a beige trench coat walking through a sunlit modern concrete lobby, soft morning light, 35mm film look</textarea></label>
+        <label><span data-i18n="negative"></span><input id="aiNeg" value="cartoon, low quality, distorted hands" /></label>
+        <div class="row2">
+          <label><span data-i18n="strength"></span> <output id="aiStrengthOut">0.65</output><input id="aiStrength" type="range" min="0" max="1" step="0.05" value="0.65" /></label>
+          <label><span data-i18n="duration"></span><input id="aiDur" type="number" min="1" max="15" value="5" /></label>
+        </div>
+        <div class="row2">
+          <label><span data-i18n="model"></span><input id="aiModel" /></label>
+          <label><span data-i18n="aspectRatio"></span><select id="aiAspect"><option>16:9</option><option>9:16</option><option>1:1</option><option>4:3</option><option>21:9</option></select></label>
+        </div>
+        <label><span data-i18n="extra"></span><textarea id="aiExtra" rows="2" placeholder='{"seed": 42}'></textarea></label>
+        <div class="btnrow"><button id="aiGo" class="primary" data-i18n="generate"></button><button id="aiCancel" data-i18n="cancel" disabled></button></div>
+        <pre id="aiLog"></pre>
+        <h4 data-i18n="results"></h4>
+        <div id="aiResults"></div>
+      </section>
+
+      <section id="tab-view" class="tab">
+        <label class="chk"><input type="checkbox" id="vOutline" checked /> <span data-i18n="outline"></span></label>
+        <label class="chk"><input type="checkbox" id="vAO" /> <span data-i18n="ao"></span></label>
+        <label class="chk"><input type="checkbox" id="vShadows" checked /> <span data-i18n="shadows"></span></label>
+        <label class="chk"><input type="checkbox" id="vGrid" checked /> <span data-i18n="grid"></span></label>
+        <label><span data-i18n="bg"></span><input type="color" id="vBg" value="#bfc3c8" /></label>
+      </section>
+    </aside>
+
+    <footer id="timeline">
+      <div class="tlbar">
+        <button id="tlPlay" data-i18n="play"></button>
+        <span id="tlTime">0.00s</span>
+        <button id="keySel" data-i18n="keySel"></button>
+        <button id="keyPose" data-i18n="keyPose"></button>
+        <button id="keyCam" data-i18n="keyCam"></button>
+        <button id="delKey" data-i18n="delKey"></button>
+        <label><span data-i18n="ease"></span><select id="tlEase"></select></label>
+        <label><span data-i18n="shot"></span><select id="shotSel"></select></label>
+        <button id="shotApply" data-i18n="applyShot"></button>
+        <label><span data-i18n="duration"></span><input id="tlDur" type="number" min="0.5" max="120" step="0.5" value="5" /></label>
+        <label><span data-i18n="fps"></span><select id="tlFps"><option>12</option><option selected>24</option><option>25</option><option>30</option><option>60</option></select></label>
+      </div>
+      <canvas id="tlCanvas"></canvas>
+    </footer>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
