@@ -127,7 +127,18 @@ $<HTMLInputElement>('#poseMode').onchange = (ev) => {
   if (on) setGizmoMode('rotate');
 };
 $('#btnNew').onclick = () => { if (confirm('Clear scene?')) { studio.clearScene(); studio.applyTime(0); } };
-$('#btnDemo').onclick = () => buildDemo();
+async function loadExample(id: string): Promise<void> {
+  if (id === 'lobby') return buildDemo();
+  const res = await fetch(`${import.meta.env.BASE_URL}examples/${encodeURIComponent(id)}.json`);
+  if (!res.ok) throw new Error(`example ${id}: HTTP ${res.status}`);
+  loadProjectText(await res.text());
+}
+$<HTMLSelectElement>('#exampleSel').onchange = (ev) => {
+  const sel = ev.target as HTMLSelectElement;
+  const id = sel.value;
+  sel.value = '';
+  if (id) loadExample(id).catch((e) => alert(String(e)));
+};
 $('#btnSave').onclick = () => download(new Blob([serializeProject(studio.toProject('greybox-project'))], { type: 'application/json' }), 'greybox-project.json');
 $('#btnLoad').onclick = () => $<HTMLInputElement>('#fileLoad').click();
 $<HTMLInputElement>('#fileLoad').onchange = async (ev) => {
@@ -435,8 +446,10 @@ refreshLang();
 syncTimelineInputs();
 syncViewInputs();
 updateGate();
-studio.loadMannequin(`${import.meta.env.BASE_URL}models/Xbot.glb`).then(() => {
-  buildDemo();
+studio.loadMannequin(`${import.meta.env.BASE_URL}models/Xbot.glb`).then(async () => {
+  const ex = new URLSearchParams(location.search).get('example');
+  if (ex && /^[\w-]+$/.test(ex)) await loadExample(ex).catch((e) => { alert(String(e)); buildDemo(); });
+  else buildDemo();
   (window as any).__ready = true;
 }).catch((e) => alert(`Failed to load mannequin: ${e}`));
 
@@ -449,4 +462,5 @@ studio.loadMannequin(`${import.meta.env.BASE_URL}models/Xbot.glb`).then(() => {
   project: () => serializeProject(studio.toProject('test')),
   load: (s: string) => loadProjectText(s),
   support: videoSupport,
+  loadExample,
 };

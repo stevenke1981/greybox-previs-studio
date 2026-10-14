@@ -16,6 +16,18 @@
 
 [English below](#english)
 
+## 範例：閃身步（Sidestep dodge）
+
+![閃身步](docs/sidestep.gif)
+
+[在線上開啟範例](https://stevenke1981.github.io/greybox-previs-studio/?example=sidestep)，或從工具列的「範例場景」選單選「閃身步」。
+
+攻擊者衝刺、出直拳。主角原本壓低重心、舉手護架，在最後一刻往右側閃：先小幅下沉預備，左腳推地，右腳斜向跨出（約 6 格），軀幹側傾、頭部離開拳線，左腳跟步，最後轉 45° 回到護架；攻擊者則撲空衝過頭。鏡頭一開始是 3/4 中遠景，閃身時快速推近，接著用時間重映射做 0.45 倍慢動作重播（高角度俯視），最後停格。
+
+整段都用 App 自己的時間軸製作：腳步用新的兩節骨 IK 釘在地板上（著地時腳踝每格最多滑動約 1.4 cm），慢動作重播用 `Timeline.retimeCopy`。要重新產生可執行 `node scripts/author-sidestep.mjs`（編舞在 `scripts/sidestep-choreo.js`），要輸出影片可執行 `node scripts/export-sidestep.mjs`。
+
+![contact sheet](docs/sidestep-contact.png)
+
 ## 功能
 
 - **場景**：灰白黏土材質的骨架人偶（three.js 範例的 Xbot，Mixamo 骨架），方塊、圓柱、球、圓錐、地板、牆、樓梯、桌、椅；格線地面、柔和光源與陰影；螢幕空間輪廓線，另有可選的環境光遮蔽 (GTAO)。
@@ -81,7 +93,7 @@ scripts/verify.mjs   Playwright 無頭瀏覽器驗證（算圖、匯出檔案）
 
 ## 限制
 
-- 人偶模型只有一種體型（Xbot），還沒有手指骨骼控制、IK 和關節角度限制。
+- 人偶模型只有一種體型（Xbot），還沒有手指骨骼控制和關節角度限制。IK 目前只開放給程式 API（`solveLimb`），UI 還不能直接拖曳手腳。
 - 姿勢模式中，有套用動作片段的人偶會先切回手動姿勢。
 - Luma 只接受公開圖片網址，需要先把匯出的圖上傳到別處。
 - AI adapter 尚未用真實金鑰測試。
@@ -106,6 +118,9 @@ MIT © 2026 Ke Sheng Da。`public/models/Xbot.glb` 取自 three.js（MIT），�
 - Export: PNG (custom size, optional transparent background), depth / normal / Canny-like edge passes, PNG sequence ZIP, **deterministic** WebM (VP9) and MP4 (H.264 when supported) via WebCodecs with fixed per-frame timestamps; MediaRecorder fallback. No ffmpeg.wasm needed.
 - AI panel with a provider adapter interface: xAI Grok Imagine (image + video), Replicate (generic), fal.ai (generic queue), Runway Gen-4 (image→video, video→video), Luma Dream Machine (Ray 2 / Photon), Kling (image2video). Submit → poll → preview/download.
 
+### Example: sidestep dodge (閃身步)
+[Open it live](https://stevenke1981.github.io/greybox-previs-studio/?example=sidestep) or pick it from the Examples menu. An attacker charges in with a straight punch. The defender, in a low guard, dips, pushes off the left foot, steps diagonally out with the right foot (~6 frames), leans the torso and slips the head off-line, brings the trail foot after, and settles in guard turned 45° to the line while the attacker overshoots. The camera pushes in during the dodge, then a 0.45× slow-motion replay (time remap) runs from a high angle before ending on a hold. Everything is authored with the app's own keyframes, using the new two-bone IK (planted ankles slide at most ~1.4 cm per frame) and `Timeline.retimeCopy`. Regenerate it with `node scripts/author-sidestep.mjs` and render it with `node scripts/export-sidestep.mjs`.
+
 ### Quickstart
 ```bash
 npm i && npm run dev
@@ -116,7 +131,7 @@ npm i && npm run dev
 All adapters follow the public docs linked in the table above and are covered by mocked tests, but **none has been exercised against a live API yet**. Keys live in memory unless you tick “Remember” (localStorage). Because most APIs block browser CORS, run the bundled zero-dependency proxy (`cp .env.example .env && npm run proxy`) and switch the connection to “Local proxy”; keys then stay server-side. The proxy only forwards to each provider's allow-listed hosts and only accepts the origins in `PROXY_ALLOWED_ORIGINS`.
 
 ### Limitations
-Single mannequin body type, no finger/IK/joint limits; Luma requires public image URLs; adapters are untested with real keys.
+Single mannequin body type, no finger control or joint limits; IK is API-only (`Studio.solveLimb`), not yet draggable in the UI; Luma requires public image URLs; adapters are untested with real keys.
 
 ### License
 MIT © 2026 Ke Sheng Da. `Xbot.glb` comes from the three.js repo (MIT); the character was originally made with Adobe Mixamo.

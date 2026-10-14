@@ -139,6 +139,34 @@ export class Timeline {
     return i / this.fps;
   }
 
+  /**
+   * Time remap: copy the motion in [a, b] to start at `dst`, played at `speed` (0.5 = half speed, slow motion).
+   * The last key before `dst` becomes a 'step' so playback cuts straight into the copy (instant replay).
+   * Values at a and b are sampled so the copy starts/ends exactly where the source did.
+   */
+  retimeCopy(a: number, b: number, dst: number, speed = 1, filter?: (id: string) => boolean): void {
+    if (!(b > a) || speed <= 0) throw new Error('retimeCopy: need b > a and speed > 0');
+    const map = (t: number) => dst + (t - a) / speed;
+    for (const [id, tr] of this.tracks) {
+      if (filter && !filter(id)) continue;
+      const va = evaluateTrack(tr, a)!;
+      const vb = evaluateTrack(tr, b)!;
+      const inner = tr.keys.filter((k) => k.t > a + 1e-6 && k.t < b - 1e-6);
+      const firstEase = [...tr.keys].reverse().find((k) => k.t <= a + 1e-6)?.ease ?? 'linear';
+      const before = tr.keys.filter((k) => k.t < dst - 1e-6);
+      let next: Track = { ...tr, keys: tr.keys.filter((k) => k.t < dst - 1e-6 || k.t > map(b) + 1e-6) };
+      if (before.length) {
+        const last = before[before.length - 1];
+        next = setKey(next, { ...last, ease: 'step' });
+      }
+      next = setKey(next, { t: dst, v: va, ease: firstEase });
+      for (const k of inner) next = setKey(next, { t: map(k.t), v: k.v, ease: k.ease });
+      next = setKey(next, { t: map(b), v: vb, ease: 'linear' });
+      this.tracks.set(id, next);
+    }
+    this.duration = Math.max(this.duration, map(b));
+  }
+
   clear(): void {
     this.tracks.clear();
   }

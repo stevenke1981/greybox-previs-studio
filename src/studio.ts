@@ -10,7 +10,8 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { Timeline } from './timeline';
 import { DEFAULT_SETTINGS, type ObjectType, type ProjectData, type ProjectSettings, type SceneObjectData } from './project';
-import { AIM_CHILD, HANDLE_BONES, POSES, type PoseName } from './poses';
+import { AIM_CHILD, HANDLE_BONES, POSES, type PoseName, type PoseSpec } from './poses';
+import { twoBoneIK, type V3 } from './ik';
 
 export interface Entry {
   id: string;
@@ -342,33 +343,94 @@ export class Studio {
   }
 
   applyPose(e: Entry, name: PoseName): void {
+    this.applyPoseSpec(e, POSES[name]);
+  }
+
+  /** Reset every bone (and the hips offset) of a mannequin to its bind pose. */
+  resetPose(e: Entry): void {
     if (!e.bones || !e.rest) return;
     if (e.clip) this.setClip(e, null);
     for (const [b, q] of e.rest) e.bones.get(b)!.quaternion.copy(q);
-    const hips = e.bones.get('Hips')!;
-    if (e.restHips) hips.position.copy(e.restHips);
+    if (e.restHips) e.bones.get('Hips')!.position.copy(e.restHips);
     e.root.updateMatrixWorld(true);
-    const spec = POSES[name];
-    const rootQ = e.root.getWorldQuaternion(new THREE.Quaternion());
-    for (const [boneName, dir] of spec.aims) {
-      const bone = e.bones.get(boneName);
-      const child = e.bones.get(AIM_CHILD[boneName]);
-      if (!bone || !child || !bone.parent) continue;
-      const bw = bone.getWorldPosition(new THREE.Vector3());
-      const cur = child.getWorldPosition(new THREE.Vector3()).sub(bw).normalize();
-      const want = new THREE.Vector3(...dir).normalize().applyQuaternion(rootQ);
-      const delta = new THREE.Quaternion().setFromUnitVectors(cur, want);
-      const bwq = bone.getWorldQuaternion(new THREE.Quaternion());
-      const pwq = bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
-      bone.quaternion.copy(pwq.multiply(delta.multiply(bwq)));
-      bone.updateMatrixWorld(true);
-    }
-    if (spec.hipsDrop && hips.parent) {
-      const w = hips.getWorldPosition(new THREE.Vector3());
-      w.y -= spec.hipsDrop * e.root.scale.y;
-      hips.position.copy(hips.parent.worldToLocal(w));
-    }
+  }
+
+  applyPoseSpec(e: Entry, spec: PoseSpec): void {
+    if (!e.bones || !e.rest) return;
+    this.resetPose(e);
+    for (const [boneName, dir] of spec.aims) this.aimBone(e, boneName, dir);
+    if (spec.hipsDrop) this.dropHips(e, spec.hipsDrop);
     this.onChange();
+  }
+
+  /** Rotate `bone` so that the direction bone -> child points along `dir` (figure space, +Z forward, +X = figure's left). */
+  aimBone(e: Entry, boneName: string, dir: number[], childName = AIM_CHILD[boneName]): void {
+    const bone = e.bones?.get(boneName);
+    const child = e.bones?.get(childName);
+    if (!bone || !child || !bone.parent) return;
+    const rootQ = e.root.getWorldQuaternion(new THREE.Quaternion());
+    this.aimBoneWorld(bone, child, new THREE.Vector3(dir[0], dir[1], dir[2]).normalize().applyQuaternion(rootQ));
+  }
+
+  private aimBoneWorld(bone: THREE.Bone, child: THREE.Object3D, want: THREE.Vector3): void {
+    bone.updateMatrixWorld(true);
+    const bw = bone.getWorldPosition(new THREE.Vector3());
+    const cur = child.getWorldPosition(new THREE.Vector3()).sub(bw);
+    if (cur.lengthSq() < 1e-12) return;
+    const delta = new THREE.Quaternion().setFromUnitVectors(cur.normalize(), want.clone().normalize());
+    const bwq = bone.getWorldQuaternion(new THREE.Quaternion());
+    const pwq = bone.parent!.getWorldQuaternion(new THREE.Quaternion()).invert();
+    bone.quaternion.copy(pwq.multiply(delta.multiply(bwq)));
+    bone.updateMatrixWorld(true);
+  }
+
+  /** Lower (or raise, negative) the hips by `m` metres in world space. */
+  dropHips(e: Entry, m: number): void {
+    const hips = e.bones?.get('Hips');
+    if (!hips?.parent) return;
+    const w = hips.getWorldPosition(new THREE.Vector3());
+    w.y -= m;
+    hips.position.copy(hips.parent.worldToLocal(w));
+    hips.updateMatrixWorld(true);
+  }
+
+  /**
+   * Two-bone IK: place the `end` joint (e.g. LeftFoot) at `target` (world) by rotating `upper` and `lower`,
+   * bending toward `pole` (world direction, e.g. knee forward). Returns the reached end position.
+   */
+  solveLimb(e: Entry, upper: string, lower: string, end: string, target: number[], pole: number[]): number[] | undefined {
+    const u = e.bones?.get(upper), l = e.bones?.get(lower), en = e.bones?.get(end);
+    if (!u || !l || !en) return;
+    e.root.updateMatrixWorld(true);
+    const pu = u.getWorldPosition(new THREE.Vector3());
+    const pl = l.getWorldPosition(new THREE.Vector3());
+    const pe = en.getWorldPosition(new THREE.Vector3());
+    const r = twoBoneIK(pu.toArray() as V3, target as V3, pu.distanceTo(pl), pl.distanceTo(pe), pole as V3);
+    this.aimBoneWorld(u, l, new THREE.Vector3(...r.mid).sub(pu));
+    this.aimBoneWorld(l, en, new THREE.Vector3(...r.end).sub(new THREE.Vector3(...r.mid)));
+    return en.getWorldPosition(new THREE.Vector3()).toArray();
+  }
+
+  /** Set a bone's WORLD orientation relative to the figure root (used to keep feet flat on the floor). */
+  setBoneRootRelative(e: Entry, boneName: string, rel: THREE.Quaternion): void {
+    const b = e.bones?.get(boneName);
+    if (!b?.parent) return;
+    const world = e.root.getWorldQuaternion(new THREE.Quaternion()).multiply(rel);
+    b.quaternion.copy(b.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));
+    b.updateMatrixWorld(true);
+  }
+
+  /** A bone's bind-pose world orientation relative to the figure root. */
+  restRootRelative(e: Entry, boneName: string): THREE.Quaternion {
+    const keep = new Map<string, THREE.Quaternion>();
+    const hipsPos = e.bones!.get('Hips')!.position.clone();
+    for (const [n, b] of e.bones!) keep.set(n, b.quaternion.clone());
+    this.resetPose(e);
+    const q = e.root.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(e.bones!.get(boneName)!.getWorldQuaternion(new THREE.Quaternion()));
+    for (const [n, b] of e.bones!) b.quaternion.copy(keep.get(n)!);
+    e.bones!.get('Hips')!.position.copy(hipsPos);
+    e.root.updateMatrixWorld(true);
+    return q;
   }
 
   // ---------------------------------------------------------------- selection

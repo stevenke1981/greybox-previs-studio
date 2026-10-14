@@ -33,7 +33,11 @@
       <label class="group chk"><input type="checkbox" id="poseMode" /> <span data-i18n="poseMode"></span></label>
       <div class="group">
         <button id="btnNew" data-i18n="newProject"></button>
-        <button id="btnDemo" data-i18n="demo"></button>
+        <select id="exampleSel" aria-label="examples">
+          <option value="" data-i18n="demo"></option>
+          <option value="lobby" data-i18n="exLobby"></option>
+          <option value="sidestep" data-i18n="exSidestep"></option>
+        </select>
         <button id="btnSave" data-i18n="save"></button>
         <button id="btnLoad" data-i18n="load"></button>
         <input type="file" id="fileLoad" accept=".json,application/json" hidden />
